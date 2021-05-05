@@ -1,7 +1,6 @@
+
 /*
-
     7 Segment Display related
-
 */
 
 // pin defines for 7 segment Display
@@ -48,9 +47,7 @@ char digit[12] = {
 
 
 /*
-
     PWM fan control related
-
 */
 
 // resistor value of voltage divider in ohm
@@ -66,7 +63,7 @@ float resistor = 3275;
 #define slow   130
 #define fast   200
 
-#define interval 1000
+#define interval 2000
 unsigned long waitUntil = 0;
 
 uint8_t fanspeed = 0;
@@ -103,23 +100,21 @@ void loop() {
   if ((unsigned long)(millis() - waitUntil) >= interval) {  // check for rollover
 
     // temperature float value rounded to an integer
-    intTemp = 0;    
-    
-    // Carry out 20 measurements  
-    for(i=0; i<20; i++)
+    int intTemp = 0;
+
+    // Carry out 20 measurements
+    float temp = 0;
+    for (i = 0; i < 20; i++)
     {
-        float temp = kty(sensorPin);
-        intTemp += (int)round(temp);
+      temp = kty(sensorPin);
+      intTemp += (int)round(temp);
     }
-    
+
     // take the average measurement value
-    intTemp = intTemp /20;
+    intTemp = intTemp / 20;
 
     ones = (intTemp % 10);
     tens = ((intTemp / 10) % 10);
-
-    Serial.println("Temperature: ");
-    Serial.println(temp);
 
     if (temp < 40)
     {
@@ -141,6 +136,9 @@ void loop() {
     }
 
     waitUntil = waitUntil + interval;  // wait another interval cycle
+
+    Serial.println("Temperature: ");
+    Serial.println(temp);
   }
 
   sendDigit(digit[tens], dig_1);
@@ -156,8 +154,8 @@ float kty(unsigned int port) {
   float sensorValue = analogRead(port);
   float resistance = sensorValue / (1023 - sensorValue) * resistor;
 
-  Serial.print("Resistance: ");
-  Serial.println(resistance, 1);
+  //Serial.print("Resistance: ");
+  //Serial.println(resistance, 1);
   return -0.000028 * pow(resistance, 2) + 0.1844 * resistance - 129.97;
 }
 
