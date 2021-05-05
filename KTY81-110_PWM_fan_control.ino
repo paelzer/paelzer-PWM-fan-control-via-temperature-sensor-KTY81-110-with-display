@@ -27,8 +27,8 @@
 // integers to take the 2 temperature digits for the display
 int ones = 0, tens = 0;
 
-// temperature float value rounded to an integer
-int intTemp;
+// integer to increment measurments
+int i = 0;
 
 //define digits for 7 segm display
 char digit[12] = {
@@ -101,9 +101,20 @@ void setup() {
 void loop() {
 
   if ((unsigned long)(millis() - waitUntil) >= interval) {  // check for rollover
-    // It's time to do something!
-    float temp = kty(sensorPin);
-    intTemp = (int)round(temp);
+
+    // temperature float value rounded to an integer
+    intTemp = 0;    
+    
+    // Carry out 20 measurements  
+    for(i=0; i<20; i++)
+    {
+        float temp = kty(sensorPin);
+        intTemp += (int)round(temp);
+    }
+    
+    // take the average measurement value
+    intTemp = intTemp /20;
+
     ones = (intTemp % 10);
     tens = ((intTemp / 10) % 10);
 
