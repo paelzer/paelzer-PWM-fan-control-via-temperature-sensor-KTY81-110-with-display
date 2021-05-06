@@ -9,8 +9,10 @@
 #define dig_3 4 // digit 3 pin
 #define dig_4 5 // digit 4 pin
 
+// defines for the positions of degree, Celsius and dash symbols in the digit array
 #define degree  10
 #define celsius 11
+#define dash    12
 
 // pin defines for the Arduino Nano to control the 74HC595
 #define resetPin  12 // MR    
@@ -18,19 +20,18 @@
 #define storePin   7 // ST_CP
 #define dataPin    8 // DS
 
-
 #define segmentsOff  B11111111 // pattern to turn off all segments (common cathode display)
 
-#define sensorPin A1
+
+#define sensorPin A1 // temperatur sensor pin is connected to A1 on the nano board
+
+int8_t intTemp;
 
 // integers to take the 2 temperature digits for the display
-int ones = 0, tens = 0;
-
-// integer to increment measurments
-int i = 0;
+uint8_t ones = 0, tens = 0;
 
 //define digits for 7 segm display
-char digit[12] = {
+char digit[13] = {
   B00010100, // 0
   B11110101, // 1
   B00011001, // 2
@@ -42,17 +43,15 @@ char digit[12] = {
   B00010000, // 8
   B01010000, // 9
   B01111000, // °
-  B00011110  // C
+  B00011110, // C
+  B11111011  // -
+
 };
 
 
 /*
     PWM fan control related
 */
-
-// resistor value of voltage divider in ohm
-// 3.24
-// 977/978
 
 float resistor = 3275;
 
@@ -94,26 +93,45 @@ void setup() {
 }
 
 
-
 void loop() {
 
   if ((unsigned long)(millis() - waitUntil) >= interval) {  // check for rollover
 
     // temperature float value rounded to an integer
-    int intTemp = 0;
+    intTemp = 0;
 
-    // Carry out 20 measurements
+    // Carry out 10 ADC value measurements
     float temp = 0;
-    for (i = 0; i < 20; i++)
+
+    float totalADCvalues = 0;
+    for (int i = 0; i < 10; i++)
     {
-      temp = kty(sensorPin);
-      intTemp += (int)round(temp);
+      int singleADCvalue = analogRead(sensorPin);
+      totalADCvalues += singleADCvalue;
     }
 
-    // take the average measurement value
-    intTemp = intTemp / 20;
+    // get the average measurement value
+    float avgADCvalue = totalADCvalues / 10;
 
+    // calculate the resistance value
+    float resistance = avgADCvalue / (1023 - avgADCvalue) * resistor;
+    avgADCvalue = 0;
+
+    Serial.print("Resistance: ");
+    Serial.println(resistance, 1);
+
+    // polynomial equation to calculate the temperature from the resistance value
+    temp = 0.0000000000000158856096691663 * pow(resistance, 5) - 0.000000000107707814667084 * pow(resistance, 4) + 0.000000296930015588067 * pow(resistance, 3) - 0.000439914565065421 * pow(resistance, 2) + 0.467289261526917 * resistance - 207.534348970219;
+
+    Serial.print("Temperature: ");
+    Serial.println(temp);
+
+    // 2 digits for the temperature is enough
+    intTemp = (int)round(temp);
+
+    // 1st digit
     ones = (intTemp % 10);
+    // 2nd digit
     tens = ((intTemp / 10) % 10);
 
     if (temp < 40)
@@ -137,27 +155,29 @@ void loop() {
 
     waitUntil = waitUntil + interval;  // wait another interval cycle
 
-    Serial.println("Temperature: ");
-    Serial.println(temp);
   }
 
-  sendDigit(digit[tens], dig_1);
-  sendDigit(digit[ones], dig_2);
+
+  // send data to the display
+
+  if (intTemp >= 0) // OK
+  {
+    sendDigit(digit[tens], dig_1);
+    sendDigit(digit[ones], dig_2);
+  }
+  else // don't show values below "0" because we prefer higher temperatures
+  {
+    sendDigit(digit[dash], dig_1);
+    sendDigit(digit[dash], dig_2);
+  }
+
   sendDigit(digit[degree], dig_3);
   sendDigit(digit[celsius], dig_4);
 
 }
 
 
-// Function to run a temperature measurement
-float kty(unsigned int port) {
-  float sensorValue = analogRead(port);
-  float resistance = sensorValue / (1023 - sensorValue) * resistor;
-
-  //Serial.print("Resistance: ");
-  //Serial.println(resistance, 1);
-  return -0.000028 * pow(resistance, 2) + 0.1844 * resistance - 129.97;
-}
+// function to set the fan speed
 
 void spinFan(uint8_t fanspeed)
 {
@@ -166,7 +186,8 @@ void spinFan(uint8_t fanspeed)
   return 0;
 }
 
-// Funktion zum Übertragen der Informationen
+// function to send the temperature value to the shift register
+
 void sendDigit(char wert, int dig) {
   digitalWrite(dig, HIGH);
 
